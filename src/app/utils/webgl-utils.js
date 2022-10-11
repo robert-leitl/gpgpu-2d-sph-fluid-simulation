@@ -69,7 +69,7 @@ export function makeVertexArray(gl, bufLocNumElmPairs, indices) {
 }
 
 export function resizeCanvasToDisplaySize(canvas) {
-    const dpr = Math.min(2, window.devicePixelRatio);
+    const dpr = Math.min(1, window.devicePixelRatio);
 
     // Lookup the size the browser is displaying the canvas in CSS pixels.
     const displayWidth  = Math.round(canvas.clientWidth * dpr);
