@@ -36,7 +36,7 @@ void main() {
     vec4 pointerPos = vec4(u_pointerPos, 0., 0.);
     float pr = length(pointerPos.xy * domainScale.xy - pi.xy * domainScale.xy);
     if (pr < 0.7) {
-        vi.xy += u_pointerVelocity * .01 * (1. - pr / 0.7);
+        vi.xy += u_pointerVelocity * .05 * (1. - pr / 0.7);
     }
 
 
