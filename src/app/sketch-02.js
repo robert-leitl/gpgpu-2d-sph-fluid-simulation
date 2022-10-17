@@ -1,4 +1,4 @@
-import { filter, fromEvent, merge } from "rxjs";
+import { filter, fromEvent, merge, retryWhen } from "rxjs";
 import { Vector2 } from "three";
 import { resizeCanvasToDisplaySize } from "./utils/webgl-utils";
 
@@ -20,38 +20,6 @@ class SPHParticle {
     }
 }
 
-class SPHCell {
-    constructor(i, j, grid) {
-        this.grid = grid;
-        this.i = i;
-        this.j = j;
-        this.id = this.i + this.j * this.grid.x;
-        this.particles = [];
-
-        this.neighborIds = [];
-
-        /*if (i != this.grid.x - 1) {
-            this.neighborIds.push(this.id + 1);
-        }
-        if (j != this.grid.y - 1) {
-            for (let i2 = Math.max(0, i-1); i2 <= Math.min(this.grid.x-1, i+1); i2++) {
-                this.neighborIds.push(this.id + this.grid.x + i2 - i);
-            }
-        }*/
-        
-        this.neighborIds.push(this.getWrapId(i + 1, j));
-        for (let n = -1; n <= 1; ++n) {
-            this.neighborIds.push(this.getWrapId(i + n, 1 + j));
-        }
-    }
-
-    getWrapId(i, j) {
-        const iw = i < 0 ? i + this.grid.x : i;
-        const jw = j < 0 ? j + this.grid.y : j;
-        return (iw % this.grid.x) + (jw % this.grid.y) * this.grid.x;
-    }
-}
-
 class SPHSimulation {
 
     particles = [];
@@ -67,12 +35,8 @@ class SPHSimulation {
         const spread = Math.floor(Math.sqrt((this.size.x * this.size.y) / count));
         this.scale = this.H / spread;
         this.size.multiplyScalar(this.scale);
+        this.center = this.size.clone().multiplyScalar(0.5);
         this.grid = new Vector2(Math.floor(this.size.x / this.H), Math.floor(this.size.y / this.H));
-
-        console.log(this.grid);
-
-        // init the cells for faster lookup of relevant particles
-        this.#initCells();
 
         // constants
         this.REST_DENS = 1.55;  // rest density
@@ -90,19 +54,18 @@ class SPHSimulation {
         
         // distribute the particles as a centered grid inside the simulation size
         const particleGrid = this.grid.clone();
-        const posFactor = .4; // grid spacing factor
+        const posFactor = .5; // grid spacing factor
         particleGrid.x = Math.floor(particleGrid.x / posFactor);
         particleGrid.y = Math.floor(particleGrid.y / posFactor);
         const ox = this.size.x - (this.H * (particleGrid.x - 1) * posFactor);
         const oy = this.size.y - (this.H * (particleGrid.y - 1) * posFactor);
-        for (let j=0; j<particleGrid.x; ++j) {
-            for (let i=0; i<particleGrid.y; ++i) {
+        for (let j=0; j<particleGrid.y; ++j) {
+            for (let i=0; i<particleGrid.x; ++i) {
                 const p = new SPHParticle(i * this.H * posFactor + ox/2, j * this.H * posFactor + oy/2);
                 // reset density
                 p.rho = this.MASS * this.#poly6Weight(0);
                 
                 this.particles.push(p);
-                this.#allocateParticleToCell(p);
             }
         }
 
@@ -122,36 +85,12 @@ class SPHSimulation {
     update(deltaTime) {
         this.#computeDensityPressure();
         this.#computeForces();
-        this.#integrate(16 * 0.0015);
+        this.#integrate(deltaTime * 0.0015);
     }
 
     applyExternalForce(pos, force) {
-        this.externalForceCell = this.#getCellFromPosition(pos);
+        this.externalForcePos = pos;
         this.externalForce = force;
-    }
-
-    #initCells() {
-        this.cells = [];
-        for (let j = 0; j < this.grid.x; j++) {
-            for (let i = 0; i < this.grid.y; i++) {
-                const cell = new SPHCell(i, j, this.grid);
-                this.cells.push(cell);
-            }
-        }
-    }
-
-    #getCellFromPosition(pos) {
-        let i = Math.floor(this.grid.x * (pos.x / this.size.x));
-        let j = Math.floor(this.grid.y * (pos.y / this.size.y));
-        return this.cells[i + j * this.grid.x];
-    }
-
-    #allocateParticleToCell(p) {
-        const c = this.#getCellFromPosition(p.s);
-        if (c != null)
-            c.particles.push(p);
-        else
-            console.error('Could not find cell for particle', p);
     }
 
     #poly6Weight(r2) {
@@ -169,22 +108,15 @@ class SPHSimulation {
     }
 
     #computeDensityPressure() {
-        this.cells.forEach(cell => {
-            cell.particles.forEach((pi, i) => {
-                // interactions between particles in this cell
-                for (let j = i + 1; j < cell.particles.length; j++) {
-                    const pj = cell.particles[j];
-                    this.#computeParticleDensities(pi, pj);
-                }
-                // interactions between particles in neighbor cells
-                cell.neighborIds.forEach(id => {
-                    const neighbor = this.cells[id];
-                    neighbor.particles.forEach(pj => this.#computeParticleDensities(pi, pj));
-                });
+        this.particles.forEach(pi => {
+            this.particles.forEach(pj => {
+               // if (pi === pj) return;
 
-                // update the pressure
-                pi.p = Math.max(this.GAS_CONST * (pi.rho - this.REST_DENS), 0);
+                this.#computeParticleDensities(pi, pj);
             });
+
+            // update the pressure
+            pi.p = Math.max(this.GAS_CONST * (pi.rho - (this.REST_DENS)), 0);
         });
     }
 
@@ -193,25 +125,18 @@ class SPHSimulation {
         if (r2 < this.HSQ) {
             let t = this.MASS * this.#poly6Weight(r2);
             pi.rho += t;
-            pj.rho += t;
         }
     }
 
     #computeForces() {
-        this.cells.forEach(cell => {
-            cell.particles.forEach((pi, i) => {
-                for (let j = i + 1; j < cell.particles.length; j++) {
-                    const pj = cell.particles[j];
-                    this.#computeParticleForces(pi, pj);
-                }
-                // interactions between particles in neighbor cells
-                cell.neighborIds.forEach(id => {
-                    const neighbor = this.cells[id];
-                    neighbor.particles.forEach(pj => this.#computeParticleForces(pi, pj));
-                });
+        this.particles.forEach(pi => {
+            this.particles.forEach(pj => { 
+                //if (pi === pj) return;
 
-                this.#computeBoundaryForces(pi);
+                this.#computeParticleForces(pi, pj);
             });
+
+            this.#computeBoundaryForces(pi);
         });
 
         this.#computeExternalForces();
@@ -234,12 +159,11 @@ class SPHSimulation {
 
             // compute viscosity force contribution
             const deltaVelocity = pj.v.clone().sub(pi.v);
-            this.forceViscosity.add(deltaVelocity.multiplyScalar(this.VISC * this.MASS * (1 / pj.rho) * this.VISC_LAP * (this.H - r)));
+            this.forceViscosity.add(deltaVelocity.multiplyScalar(this.VISC * this.MASS * this.#visc_laplWeight(r) / pj.rho));
 
             const totalForce = this.forcePressure.clone().add(this.forceViscosity);
 
             pi.f.add(totalForce);
-            pj.f.sub(totalForce);
         }
     }
 
@@ -249,9 +173,9 @@ class SPHSimulation {
         const ymin = 0;
         const ymax = this.size.y;
         const h = this.H;
-        const f = this.MASS * pi.p / (pi.rho + 1e-9);
+        const f = (this.MASS / (pi.rho + 1e-9)) * (pi.p * 1);
 
-        /*if (pi.s.x < xmin + h) {
+        if (pi.s.x < xmin + h) {
             let r = pi.s.x - xmin;
             pi.f.x -= f * this.#spiky_grad2Weight(r) * r;
         } else if (pi.s.x > xmax - h) {
@@ -264,21 +188,23 @@ class SPHSimulation {
         } else if (pi.s.y > ymax - h) {
             let r = ymax - pi.s.y;
             pi.f.y += f * this.#spiky_grad2Weight(r) * r;
-        }*/
+        }
     }
 
     #computeExternalForces() {
-        if (this.externalForceCell) {
-            this.externalForceCell.particles.forEach(pi => pi.v.copy(this.externalForce));
-            this.externalForceCell = null;
+        if (this.externalForce) {
+            this.particles
+                .map(pi => [pi, this.externalForcePos.distanceToSquared(pi.s)])
+                .filter(([pi, r2]) => r2 < .5)
+                .forEach(([pi, r2]) => {
+                    pi.v.copy(this.externalForce).multiplyScalar(0.5);
+                    pi.f.set(0, 0);
+                });
+            this.externalForce = null;
         }
     }
 
     #integrate(deltaTime) {
-        // reset the particles within the cells, as the distribution
-        // of particles is going to change
-        this.cells.forEach(c => c.particles.length = 0);
-
         const xmin = 0;
         const xmax = this.size.x;
         const ymin = 0;
@@ -292,37 +218,21 @@ class SPHSimulation {
             v = v.multiplyScalar(0.5);
             p.s.add(p.v.clone().add(v).multiplyScalar(deltaTime));
 
-
-            /*if (p.s.x < xmin) {
+            const bounceFactor = 0;
+            if (p.s.x < xmin) {
                 p.s.x = xmin + 1e-6;
-                p.v.x *= -0.5;
+                p.v.x *= bounceFactor;
             }
             else if (p.s.x > xmax) {
                 p.s.x = xmax - 1e-6;
-                p.v.x *= -0.5;
+                p.v.x *= bounceFactor;
             }
             if (p.s.y < ymin) {
                 p.s.y = ymin + 1e-6;
-                p.v.y *= -0.5;
+                p.v.y *= bounceFactor;
             } else if (p.s.y > ymax) {
                 p.s.y = ymax - 1e-6;
-                p.v.y *= -0.5;
-            }*/
-
-            if (p.s.x < xmin) {
-                p.s.x = xmax - 1e-6 ;
-                p.v.x *= 0.5;
-            }
-            else if (p.s.x > xmax) {
-                p.s.x = xmin + 1e-6;
-                p.v.x *= 0.5;
-            }
-            if (p.s.y < ymin) {
-                p.s.y = ymax - 1e-6;
-                p.v.y *= 0.5;
-            } else if (p.s.y > ymax) {
-                p.s.y = ymin + 1e-6;
-                p.v.y *= 0.5;
+                p.v.y *= bounceFactor;
             }
 
             // reset particle
@@ -330,8 +240,6 @@ class SPHSimulation {
             p.f.set(0, 0);
 
             this.externalForceCell = null;
-
-            this.#allocateParticleToCell(p);
         }
     }
 }
@@ -384,9 +292,7 @@ export class Sketch {
 
     #init() {
         this.viewportSize.set(this.canvas.clientWidth, this.canvas.clientHeight)
-        this.simulationSize = new Vector2(800, 800);
-
-        console.log(this.viewportSize);
+        this.simulationSize = new Vector2(1200, 1200);
 
         this.ctx = this.canvas.getContext("2d");
 
@@ -451,14 +357,16 @@ export class Sketch {
         this.smoothPointerForce.sub(this.prevSmoothPointerPos);
         this.prevSmoothPointerPos.copy(this.smoothPointerPos);
 
-        if (this.smoothPointerForce.lengthSq() > 1) {
+        if (this.isPointerDown && this.smoothPointerForce.lengthSq() > 0.01) {
             this.simulation.applyExternalForce(
                 this.simulation.toSimulationSpace(this.smoothPointerPos), 
                 this.smoothPointerForce.multiplyScalar(1)
             );
         }
         
-        this.simulation.update(deltaTime);
+        for(let i=0; i<1; ++i) {
+            this.simulation.update(deltaTime / 1);
+        }
     }
 
     #render() {
