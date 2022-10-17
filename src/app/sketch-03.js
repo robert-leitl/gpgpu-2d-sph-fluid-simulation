@@ -246,8 +246,12 @@ export class Sketch {
         const gl = this.gl;
 
         twgl.bindFramebufferInfo(gl, null);
+        gl.disable(gl.CULL_FACE);
+        gl.disable(gl.DEPTH_TEST);
         gl.clearColor(0., 0., 0., 1.);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA);
 
         gl.useProgram(this.drawPrg.program);
         twgl.setUniforms(this.drawPrg, { 
@@ -255,5 +259,6 @@ export class Sketch {
             u_velocityTexture: this.integrateOutFBO.attachments[1] 
         });
         gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
+        gl.disable(gl.BLEND);
     }
 }
