@@ -9,6 +9,22 @@ uniform sampler2D u_densityPressureTexture;
 uniform int u_particleCount;
 uniform vec2 u_domainScale;
 
+layout(std140) uniform u_SimulationParams {
+    float H;
+    float HSQ;
+    float MASS;
+    float REST_DENS;
+    float GAS_CONST;
+    float VISC;
+    float POLY6;
+    float SPIKY_GRAD;
+    float VISC_LAP;
+    float POINTER_RADIUS;
+    float POINTER_STRENGTH;
+    int PARTICLE_COUNT;
+    vec2 DOMAIN_SCALE;
+};
+
 in vec2 v_uv;
 
 out vec4 outForce;
@@ -19,16 +35,6 @@ ivec2 ndx2tex(ivec2 dimensions, int index) {
     return ivec2(x, y);
 }
 
-#define PI 3.1415926535
-
-// SPH constants (TODO: move to uniform block)
-const float H = 1.;
-float HSQ = H * H;
-float MASS = 1.;
-float VISC = 10.;
-float SPIKY_GRAD = -45.0 / (PI * pow(H, 6.));
-float VISC_LAP = 45.0 / (PI * pow(H, 5.));
-
 float spiky_grad2Weight(float r) {
     float temp = max(0., H - r);
     return (SPIKY_GRAD * temp * temp) / r;
@@ -38,10 +44,9 @@ float visc_laplWeight(float r) {
     return VISC_LAP * (1. - r / H);
 }
 
-
 void main() {
     ivec2 particleTexDimensions = textureSize(u_positionTexture, 0);
-    vec4 domainScale = vec4(u_domainScale, 0., 0.);
+    vec4 domainScale = vec4(DOMAIN_SCALE, 0., 0.);
 
     vec4 pi = texture(u_positionTexture, v_uv) * domainScale;
     vec4 vi = texture(u_velocityTexture, v_uv);
@@ -51,7 +56,7 @@ void main() {
     vec4 force = vec4(0.);
 
     // loop over all other particles
-    for(int i=0; i<u_particleCount; i++) {
+    for(int i=0; i<PARTICLE_COUNT; i++) {
         ivec2 pj_tex = ndx2tex(particleTexDimensions, i);
         vec4 pj = texelFetch(u_positionTexture, pj_tex, 0) * domainScale;
         vec4 pij = pj - pi;
@@ -84,11 +89,12 @@ void main() {
     pi /= domainScale;
 
     // compute boundary forces
-    float xmin = -1.;
-    float xmax = 1.;
-    float ymin = -1.;
-    float ymax = 1.;
-    float h = H;
+    float dim = 1.2;
+    float xmin = -dim;
+    float xmax = dim;
+    float ymin = -dim;
+    float ymax = dim;
+    float h = .0;
     float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
 
     if (pi.x < xmin + h) {

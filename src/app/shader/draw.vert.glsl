@@ -20,5 +20,5 @@ void main() {
     v_velocity = length(vi);
 
     gl_Position = vec4(pi.xyz, 1.);
-    gl_PointSize = 6. + v_velocity * 5.;
+    gl_PointSize = 10. + v_velocity * 5.;
 }
