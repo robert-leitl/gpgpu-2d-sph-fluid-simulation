@@ -231,6 +231,8 @@ export class Sketch {
     }
 
     #initTweakpane() {
+        if (!this.pane) return;
+
         const sim = this.pane.addFolder({ title: 'Simulation' });
         sim.addInput(this.simulationParams, 'H', { min: 0.01, max: 1, });
         sim.addInput(this.simulationParams, 'MASS', { min: 0.01, max: 5, });
