@@ -56,10 +56,10 @@ export class Sketch {
     }
 
     run(time = 0) {
-        this.#deltaTime = Math.min(32, time - this.#time);
+        this.#deltaTime = Math.min(10, time - this.#time);
         this.#time = time;
         this.#deltaFrames = this.#deltaTime / this.TARGET_FRAME_DURATION;
-        this.#frames += this.#deltaFrames
+        this.#frames += this.#deltaFrames;
 
         this.#animate(this.#deltaTime);
         this.#render();
