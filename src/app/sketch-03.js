@@ -82,7 +82,7 @@ export class Sketch {
         const maxSize = Math.max(this.domainScale[0], this.domainScale[1]) * 1.;
         this.domainScale[0] /= maxSize;
         this.domainScale[1] /= maxSize;
-        vec2.scale(this.domainScale, this.domainScale, 10.);
+        vec2.scale(this.domainScale, this.domainScale, 5.);
         this.simulationParams.DOMAIN_SCALE = this.domainScale;
         this.simulationParamsNeedUpdate = true;
 

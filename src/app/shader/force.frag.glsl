@@ -89,7 +89,7 @@ void main() {
     pi /= domainScale;
 
     // compute boundary forces
-    float dim = 1.5;
+    float dim = 1.5; // hides the edges when greater than 1
     float xmin = -dim;
     float xmax = dim;
     float ymin = -dim;

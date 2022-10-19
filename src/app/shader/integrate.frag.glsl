@@ -52,20 +52,7 @@ void main() {
     outVelocity = vi;
 
     // damp the movement on the edges
-    float dim = .75;
-    float xmin = -dim;
-    float xmax = dim;
-    float ymin = -dim;
-    float ymax = dim;
-    float bounceFactor = 0.;
-    if (outPosition.x < xmin) {
-        outVelocity.x *= bounceFactor;
-    } else if (outPosition.x > xmax) {
-        outVelocity.x *= bounceFactor;
-    }
-    if (outPosition.y < ymin) {
-        outVelocity.y *= bounceFactor;
-    } else if (outPosition.y > ymax) {
-        outVelocity.y *= bounceFactor;
-    }
+    float dim = 1.1; // damping distance
+    float damping = 1. - max(0., length(pi) - dim);
+    outVelocity *= damping;
 }
