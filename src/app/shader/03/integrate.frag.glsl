@@ -52,7 +52,7 @@ void main() {
     outVelocity = vi;
 
     // damp the movement on the edges
-    float dim = 1.1; // damping distance
+    float dim = 1.2; // damping distance
     float damping = 1. - max(0., length(pi) - dim);
     outVelocity *= damping;
 }

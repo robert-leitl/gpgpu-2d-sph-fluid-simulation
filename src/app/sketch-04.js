@@ -2,14 +2,14 @@ import { vec2 } from "gl-matrix";
 import { filter, fromEvent, merge, throwIfEmpty } from "rxjs";
 import * as twgl from "twgl.js";
 
-import drawVert from './shader/03/draw.vert.glsl';
-import drawFrag from './shader/03/draw.frag.glsl';
-import integrateVert from './shader/03/integrate.vert.glsl';
-import integrateFrag from './shader/03/integrate.frag.glsl';
-import pressureVert from './shader/03/pressure.vert.glsl';
-import pressureFrag from './shader/03/pressure.frag.glsl';
-import forceVert from './shader/03/force.vert.glsl';
-import forceFrag from './shader/03/force.frag.glsl';
+import drawVert from './shader/04/draw.vert.glsl';
+import drawFrag from './shader/04/draw.frag.glsl';
+import integrateVert from './shader/04/integrate.vert.glsl';
+import integrateFrag from './shader/04/integrate.frag.glsl';
+import pressureVert from './shader/04/pressure.vert.glsl';
+import pressureFrag from './shader/04/pressure.frag.glsl';
+import forceVert from './shader/04/force.vert.glsl';
+import forceFrag from './shader/04/force.frag.glsl';
 
 export class Sketch {
 
