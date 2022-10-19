@@ -168,12 +168,13 @@ class SPHSimulation {
     }
 
     #computeBoundaryForces(pi) {
-        const xmin = 0;
-        const xmax = this.size.x;
-        const ymin = 0;
-        const ymax = this.size.y;
-        const h = this.H;
-        const f = (this.MASS / (pi.rho + 1e-9)) * (pi.p * 1);
+        const offset = 3;
+        const xmin = offset;
+        const xmax = this.size.x - offset;
+        const ymin = offset;
+        const ymax = this.size.y - offset;
+        const h = 2;
+        const f = (this.MASS / (pi.rho + 1e-9)) * (pi.p);
 
         if (pi.s.x < xmin + h) {
             let r = pi.s.x - xmin;
@@ -219,7 +220,7 @@ class SPHSimulation {
             p.s.add(p.v.clone().add(v).multiplyScalar(deltaTime));
 
             const bounceFactor = 0;
-            if (p.s.x < xmin) {
+            /*if (p.s.x < xmin) {
                 p.s.x = xmin + 1e-6;
                 p.v.x *= bounceFactor;
             }
@@ -233,7 +234,7 @@ class SPHSimulation {
             } else if (p.s.y > ymax) {
                 p.s.y = ymax - 1e-6;
                 p.v.y *= bounceFactor;
-            }
+            }*/
 
             // reset particle
             p.rho = this.MASS * this.#poly6Weight(0);

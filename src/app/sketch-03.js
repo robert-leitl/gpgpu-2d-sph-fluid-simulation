@@ -42,8 +42,8 @@ export class Sketch {
     };
 
     pointerParams = {
-        RADIUS: 0.7,
-        STRENGTH: 5,
+        RADIUS: 2,
+        STRENGTH: 10,
     }
 
     constructor(canvasElm, onInit = null, isDev = false, pane = null) {
@@ -82,6 +82,7 @@ export class Sketch {
         const maxSize = Math.max(this.domainScale[0], this.domainScale[1]) * 1.;
         this.domainScale[0] /= maxSize;
         this.domainScale[1] /= maxSize;
+        vec2.scale(this.domainScale, this.domainScale, 10.);
         this.simulationParams.DOMAIN_SCALE = this.domainScale;
         this.simulationParamsNeedUpdate = true;
 
@@ -241,8 +242,8 @@ export class Sketch {
         sim.addInput(this.simulationParams, 'VISC', { min: 1, max: 20, });
 
         const pointer = this.pane.addFolder({ title: 'Pointer' });
-        pointer.addInput(this.pointerParams, 'RADIUS', { min: 0.1, max: 1, });
-        pointer.addInput(this.pointerParams, 'STRENGTH', { min: 0.1, max: 30, });
+        pointer.addInput(this.pointerParams, 'RADIUS', { min: 0.1, max: 5, });
+        pointer.addInput(this.pointerParams, 'STRENGTH', { min: 1, max: 35, });
 
         sim.on('change', () => this.#updateSimulationParams());
         pointer.on('change', () => this.pointerParamsNeedUpdate = true);

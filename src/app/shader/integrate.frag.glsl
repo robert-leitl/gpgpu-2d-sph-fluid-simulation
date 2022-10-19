@@ -51,12 +51,13 @@ void main() {
     outPosition = pi;
     outVelocity = vi;
 
-    float dim = .8;
+    // damp the movement on the edges
+    float dim = .75;
     float xmin = -dim;
     float xmax = dim;
     float ymin = -dim;
     float ymax = dim;
-    float bounceFactor = 0.9;
+    float bounceFactor = 0.;
     if (outPosition.x < xmin) {
         outVelocity.x *= bounceFactor;
     } else if (outPosition.x > xmax) {

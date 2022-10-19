@@ -89,12 +89,12 @@ void main() {
     pi /= domainScale;
 
     // compute boundary forces
-    float dim = 1.2;
+    float dim = 1.5;
     float xmin = -dim;
     float xmax = dim;
     float ymin = -dim;
     float ymax = dim;
-    float h = .0;
+    float h = H;
     float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
 
     if (pi.x < xmin + h) {
