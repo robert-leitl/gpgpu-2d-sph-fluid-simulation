@@ -58,7 +58,7 @@ export class Sketch {
     }
 
     run(time = 0) {
-        this.#deltaTime = Math.min(10, time - this.#time);
+        this.#deltaTime = Math.min(32, time - this.#time);
         this.#time = time;
         this.#deltaFrames = this.#deltaTime / this.TARGET_FRAME_DURATION;
         this.#frames += this.#deltaFrames;
@@ -336,10 +336,10 @@ export class Sketch {
 
 
         // use a fixed deltaTime of 10 ms
-        deltaTime = 10;
+        const dt = 10;
 
         // simulate at least once
-        this.#simulate(10);
+        this.#simulate(dt);
 
         // clear the pointer force so that it wont add up during
         // subsequent simulation steps
@@ -347,7 +347,7 @@ export class Sketch {
 
         // additional simulation steps
         for(let i=0; i<this.simulationParams.STEPS; ++i) {
-            this.#simulate(10);
+            this.#simulate(dt);
         }
     }
 

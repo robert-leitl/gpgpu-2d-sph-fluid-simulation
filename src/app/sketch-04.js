@@ -40,7 +40,7 @@ export class Sketch {
         PARTICLE_COUNT: 0,
         DOMAIN_SCALE: 0,
 
-        STEPS: 2
+        STEPS: 0
     };
 
     pointerParams = {
@@ -58,7 +58,7 @@ export class Sketch {
     }
 
     run(time = 0) {
-        this.#deltaTime = Math.min(10, time - this.#time);
+        this.#deltaTime = Math.min(16, time - this.#time);
         this.#time = time;
         this.#deltaFrames = this.#deltaTime / this.TARGET_FRAME_DURATION;
         this.#frames += this.#deltaFrames;
@@ -335,11 +335,12 @@ export class Sketch {
         this.#updatePointer();
 
 
-        // use a fixed deltaTime of 10 ms
-        deltaTime = 10;
+        // use a fixed deltaTime of 10 ms adapted to
+        // device frame rate
+        deltaTime = 10 * this.#deltaFrames;
 
         // simulate at least once
-        this.#simulate(10);
+        this.#simulate(deltaTime);
 
         // clear the pointer force so that it wont add up during
         // subsequent simulation steps
@@ -347,7 +348,7 @@ export class Sketch {
 
         // additional simulation steps
         for(let i=0; i<this.simulationParams.STEPS; ++i) {
-            this.#simulate(10);
+            this.#simulate(deltaTime);
         }
     }
 
