@@ -1,4 +1,4 @@
-import { vec2 } from "gl-matrix";
+import { mat4, vec2, vec3, vec4 } from "gl-matrix";
 import { filter, fromEvent, merge, throwIfEmpty } from "rxjs";
 import * as twgl from "twgl.js";
 
@@ -10,6 +10,8 @@ import pressureVert from './shader/04/pressure.vert.glsl';
 import pressureFrag from './shader/04/pressure.frag.glsl';
 import forceVert from './shader/04/force.vert.glsl';
 import forceFrag from './shader/04/force.frag.glsl';
+import spikesVert from './shader/04/spikes.vert.glsl';
+import spikesFrag from './shader/04/spikes.frag.glsl';
 
 export class Sketch {
 
@@ -22,7 +24,10 @@ export class Sketch {
     #deltaFrames = 0;
 
     // particle constants
-    NUM_PARTICLES = 500;
+    NUM_PARTICLES = 100;
+
+    // spikes plane properties
+    PLANE_SIZE = 1;
 
     simulationParams = {
         H: 1, // kernel radius
@@ -47,6 +52,22 @@ export class Sketch {
         RADIUS: 2,
         STRENGTH: 10,
     }
+
+    camera = {
+        matrix: mat4.create(),
+        near: .1,
+        far: 5,
+        fov: Math.PI / 4,
+        aspect: 1,
+        position: vec3.fromValues(0, .5, 1),
+        up: vec3.fromValues(0, 1, 0),
+        matrices: {
+            view: mat4.create(),
+            projection: mat4.create(),
+            inversProjection: mat4.create(),
+            inversViewProjection: mat4.create()
+        }
+    };
 
     constructor(canvasElm, onInit = null, isDev = false, pane = null) {
         this.canvas = canvasElm;
@@ -84,6 +105,8 @@ export class Sketch {
         const maxSize = Math.max(this.domainScale[0], this.domainScale[1]) * 1.;
         this.domainScale[0] /= maxSize;
         this.domainScale[1] /= maxSize;
+        // fix the domain scale to the aspect of the spikes plane
+        vec2.set(this.domainScale, 1, 1);
         vec2.scale(this.domainScale, this.domainScale, 5.);
         this.simulationParams.DOMAIN_SCALE = this.domainScale;
         this.simulationParamsNeedUpdate = true;
@@ -93,6 +116,8 @@ export class Sketch {
         if (needsResize) {
             gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         }
+
+        this.#updateProjectionMatrix(gl);
     }
 
     #init() {
@@ -115,6 +140,7 @@ export class Sketch {
         this.integratePrg = twgl.createProgramInfo(gl, [integrateVert, integrateFrag]);
         this.pressurePrg = twgl.createProgramInfo(gl, [pressureVert, pressureFrag]);
         this.forcePrg = twgl.createProgramInfo(gl, [forceVert, forceFrag]);
+        this.spikesPrg = twgl.createProgramInfo(gl, [spikesVert, spikesFrag]);
 
         // Setup uinform blocks
         this.simulationParamsUBO = twgl.createUniformBlockInfo(gl, this.pressurePrg, 'u_SimulationParams');
@@ -123,6 +149,11 @@ export class Sketch {
 
         // Setup Meshes
         this.quadBufferInfo = twgl.createBufferInfoFromArrays(gl, { a_position: { numComponents: 2, data: [-1, -1, 3, -1, -1, 3] }});
+        this.quadVAO = twgl.createVAOAndSetAttributes(gl, this.pressurePrg.attribSetters, this.quadBufferInfo.attribs, this.quadBufferInfo.indices);
+        const spikesArrays = twgl.primitives.createPlaneVertices(this.PLANE_SIZE, this.PLANE_SIZE, 228, 228);
+        this.spikesBufferInfo = twgl.createBufferInfoFromArrays(gl, spikesArrays);
+        this.spikesVAO = twgl.createVAOAndSetAttributes(gl, this.spikesPrg.attribSetters, this.spikesBufferInfo.attribs, this.spikesBufferInfo.indices);
+        this.spikesWorldMatrix = mat4.create();
 
         // Setup Framebuffers
         this.pressureFBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.densityPressure}], this.textureSize, this.textureSize);
@@ -133,6 +164,8 @@ export class Sketch {
         this.#initEvents();
         this.#updateSimulationParams();
         this.#initTweakpane();
+        this.#updateCameraMatrix();
+        this.#updateProjectionMatrix(gl);
 
         this.resize();
         
@@ -149,6 +182,7 @@ export class Sketch {
         fromEvent(this.canvas, 'pointerdown').subscribe((e) => {
             this.isPointerDown = true;
             this.pointer = this.#getNormalizedPointerCoords(e);
+            this.pointer = this.#getPointerSpikesPlaneIntersection();
             vec2.copy(this.pointerLerp, this.pointer);
             vec2.copy(this.pointerLerpPrev, this.pointerLerp);
         });
@@ -160,6 +194,7 @@ export class Sketch {
             filter(() => this.isPointerDown)
         ).subscribe((e) => {
             this.pointer = this.#getNormalizedPointerCoords(e);
+            this.pointer = this.#getPointerSpikesPlaneIntersection();
         });
     }
 
@@ -279,7 +314,7 @@ export class Sketch {
         // calculate density and pressure for every particle
         gl.useProgram(this.pressurePrg.program);
         twgl.bindFramebufferInfo(gl, this.pressureFBO);
-        twgl.setBuffersAndAttributes(gl, this.pressurePrg, this.quadBufferInfo);
+        gl.bindVertexArray(this.quadVAO)
         twgl.setUniforms(this.pressurePrg, { u_positionTexture: this.inFBO.attachments[0] });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
 
@@ -356,7 +391,7 @@ export class Sketch {
         /** @type {WebGLRenderingContext} */
         const gl = this.gl;
 
-        twgl.bindFramebufferInfo(gl, null);
+        /*twgl.bindFramebufferInfo(gl, null);
         gl.disable(gl.CULL_FACE);
         gl.disable(gl.DEPTH_TEST);
         gl.clearColor(0., 0., 0., 1.);
@@ -371,6 +406,63 @@ export class Sketch {
             u_resolution: this.viewportSize
         });
         gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
-        gl.disable(gl.BLEND);
+        gl.disable(gl.BLEND);*/
+
+        twgl.bindFramebufferInfo(gl, null);
+        gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.CULL_FACE);
+        gl.clearColor(0., 0., 0., 1.);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.useProgram(this.spikesPrg.program);
+        twgl.setUniforms(this.spikesPrg, {
+            u_worldMatrix: this.spikesWorldMatrix,
+            u_viewMatrix: this.camera.matrices.view,
+            u_projectionMatrix: this.camera.matrices.projection,
+            u_particlePosTexture: this.currentPositionTexture
+        });
+        gl.bindVertexArray(this.spikesVAO);
+        gl.drawElements(gl.TRIANGLES, this.spikesBufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
+    }
+
+    #updateCameraMatrix() {
+        mat4.targetTo(this.camera.matrix, this.camera.position, [0, 0, 0], this.camera.up);
+        mat4.invert(this.camera.matrices.view, this.camera.matrix);
+    }
+
+    #updateProjectionMatrix(gl) {
+        this.camera.aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+        const height = .6;
+        const distance = this.camera.position[2];
+        if (this.camera.aspect > 1) {
+            this.camera.fov = 2 * Math.atan( height / distance );
+        } else {
+            this.camera.fov = 2 * Math.atan( (height / this.camera.aspect) / distance );
+        }
+
+        mat4.perspective(this.camera.matrices.projection, this.camera.fov, this.camera.aspect, this.camera.near, this.camera.far);
+        mat4.invert(this.camera.matrices.inversProjection, this.camera.matrices.projection);
+        mat4.multiply(this.camera.matrices.inversViewProjection, this.camera.matrix, this.camera.matrices.inversProjection)
+    }
+
+    #getPointerSpikesPlaneIntersection() {
+        const p = this.#screenToWorldPosition(this.pointer[0], this.pointer[1], 0);
+        const ray = vec3.subtract(vec3.create(), p, this.camera.position);
+        const t = - this.camera.position[1] / ray[1];
+        vec3.scale(ray, ray, t);
+        const i = vec3.add(vec3.create(), this.camera.position, ray);
+        vec3.scale(i, i, this.PLANE_SIZE);
+        // swap z with y to match simulation plane
+        return vec3.fromValues(i[0], i[2], 0);
+    }
+
+    #screenToWorldPosition(x, y, z) {
+        const ndcPos = vec3.fromValues(x, y, z); 
+        const worldPos = vec4.transformMat4(vec4.create(), vec4.fromValues(ndcPos[0], ndcPos[1], ndcPos[2], 1), this.camera.matrices.inversViewProjection);
+        if (worldPos[3] !== 0){
+            vec4.scale(worldPos, worldPos, 1 / worldPos[3]);
+        }
+
+        return worldPos;
     }
 }
