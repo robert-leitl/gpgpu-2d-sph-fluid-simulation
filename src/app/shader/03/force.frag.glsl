@@ -10,8 +10,6 @@ uniform usampler2D u_offsetTexture;
 uniform sampler2D u_densityPressureTexture;
 uniform int u_particleCount;
 uniform vec2 u_domainScale;
-uniform ivec2 u_cellTexSize;
-uniform float u_cellSize;
 
 layout(std140) uniform u_SimulationParams {
     float H;
@@ -27,21 +25,15 @@ layout(std140) uniform u_SimulationParams {
     float POINTER_STRENGTH;
     int PARTICLE_COUNT;
     vec2 DOMAIN_SCALE;
+    ivec2 CELL_TEX_SIZE;
+    float CELL_SIZE;
 };
 
 in vec2 v_uv;
 
 out vec4 outForce;
 
-ivec2 ndx2tex(ivec2 dimensions, int index) {
-    int y = index / dimensions.x;
-    int x = index % dimensions.x;
-    return ivec2(x, y);
-}
-
-int tex2ndx(ivec2 dimensions, ivec2 tex) {
-    return tex.x + tex.y * dimensions.x;
-}
+#include ./utils/particle-utils.glsl;
 
 float spiky_grad2Weight(float r) {
     float temp = max(0., H - r);
@@ -52,24 +44,10 @@ float visc_laplWeight(float r) {
     return VISC_LAP * (1. - r / H);
 }
 
-int pos2CellId(vec2 p, ivec2 cellTexSize, vec2 domainScale, float cellSize) {
-    vec2 pi = p * 0.5 + 0.5;
-    pi = clamp(pi, vec2(0.), vec2(1.));
-    pi *= domainScale;
-    return tex2ndx(cellTexSize, ivec2(floor(pi / cellSize)));
-}
-
-ivec2 pos2CellIndex(vec2 p, ivec2 cellTexSize, vec2 domainScale, float cellSize) {
-    vec2 pi = p * 0.5 + 0.5;
-    pi = clamp(pi, vec2(0.), vec2(1.));
-    pi *= domainScale;
-    return ivec2(floor(pi / cellSize));
-}
-
 void main() {
     ivec2 particleTexDimensions = textureSize(u_positionTexture, 0);
     vec4 domainScale = vec4(DOMAIN_SCALE, 0., 0.);
-    int cellCount = u_cellTexSize.x * u_cellTexSize.y;
+    int cellCount = CELL_TEX_SIZE.x * CELL_TEX_SIZE.y;
 
     vec4 p = texture(u_positionTexture, v_uv);
     vec4 pi = p * domainScale;
@@ -80,17 +58,17 @@ void main() {
     vec4 force = vec4(0.);
     
     // find the cell id of this particle
-    ivec2 cellIndex = pos2CellIndex(p.xy, u_cellTexSize, domainScale.xy, u_cellSize);
+    ivec2 cellIndex = pos2CellIndex(p.xy, CELL_TEX_SIZE, domainScale.xy, CELL_SIZE);
 
-    /*for(int i = -1; i <= 1; ++i)
+    for(int i = -1; i <= 1; ++i)
     {
         for(int j = -1; j <= 1; ++j)
         {
             ivec2 neighborIndex = cellIndex + ivec2(i, j);            
-            int neighborId = tex2ndx(u_cellTexSize, neighborIndex) % cellCount;
+            int neighborId = tex2ndx(CELL_TEX_SIZE, neighborIndex) % cellCount;
             
             // look up the offset to the cell:
-            int neighborIterator = int(texelFetch(u_offsetTexture, ndx2tex(u_cellTexSize, neighborId), 0).x);
+            int neighborIterator = int(texelFetch(u_offsetTexture, ndx2tex(CELL_TEX_SIZE, neighborId), 0).x);
 
             // iterate through particles in the neighbour cell (if iterator offset is valid)
             while(neighborIterator != 1048576 && neighborIterator < PARTICLE_COUNT)
@@ -134,10 +112,10 @@ void main() {
                 neighborIterator++;
             }
         }
-    }*/
+    }
 
     // loop over all other particles
-    for(int i=0; i<PARTICLE_COUNT; i++) {
+    /*for(int i=0; i<PARTICLE_COUNT; i++) {
         ivec2 pj_tex = ndx2tex(particleTexDimensions, i);
         vec4 pj = texelFetch(u_positionTexture, pj_tex, 0) * domainScale;
         vec4 pij = pj - pi;
@@ -165,12 +143,12 @@ void main() {
 
             force += pressureForce + viscosityForce;
         }
-    }
+    }*/
 
     pi /= domainScale;
 
     // compute boundary forces
-    float dim = 1.8; // hides the edges when greater than 2
+    float dim = 1.5; // hides the edges when greater than 2
     float xmin = -dim;
     float xmax = dim;
     float ymin = -dim;

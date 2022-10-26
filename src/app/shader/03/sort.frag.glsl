@@ -14,15 +14,7 @@ in vec2 v_position;
 
 out uvec4 outIndices;
 
-ivec2 ndx2tex(ivec2 dimensions, int index) {
-    int y = index / dimensions.x;
-    int x = index % dimensions.x;
-    return ivec2(x, y);
-}
-
-int tex2ndx(ivec2 dimensions, ivec2 tex) {
-    return tex.x + tex.y * dimensions.x;
-}
+#include ./utils/particle-utils.glsl;
 
 void main() {
     ivec2 texSize = u_texSize;

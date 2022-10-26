@@ -31,7 +31,7 @@ export class Sketch {
     NUM_PARTICLES = 520;
 
     // the domain scale factor compresses the field to make a dense particle area
-    DOMAIN_SCALE_FACTOR = 9;
+    DOMAIN_SCALE_FACTOR = 5;
 
     simulationParams = {
         H: 1, // kernel radius
@@ -49,7 +49,7 @@ export class Sketch {
         PARTICLE_COUNT: 0,
         DOMAIN_SCALE: 0,
 
-        STEPS: 1
+        STEPS: 0
     };
 
     pointerParams = {
@@ -135,6 +135,7 @@ export class Sketch {
 
         // Setup Meshes
         this.quadBufferInfo = twgl.createBufferInfoFromArrays(gl, { a_position: { numComponents: 2, data: [-1, -1, 3, -1, -1, 3] }});
+        this.quadVAO = twgl.createVAOAndSetAttributes(gl, this.pressurePrg.attribSetters, this.quadBufferInfo.attribs, this.quadBufferInfo.indices);
 
         // Setup Framebuffers
         this.pressureFBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.densityPressure}], this.textureSize, this.textureSize);
@@ -324,12 +325,16 @@ export class Sketch {
         /** @type {WebGLRenderingContext} */
         const gl = this.gl;
 
-        //this.#prepare();
+        this.#prepare();
 
         if (this.simulationParamsNeedUpdate) {
             twgl.setBlockUniforms(
                 this.simulationParamsUBO,
-                this.simulationParams
+                {
+                    ...this.simulationParams,
+                    CELL_TEX_SIZE: [this.cellSideCount, this.cellSideCount],
+                    CELL_SIZE: this.simulationParams.H
+                }
             );
             twgl.setUniformBlock(gl, this.pressurePrg, this.simulationParamsUBO);
             this.simulationParamsNeedUpdate = false;
@@ -341,20 +346,17 @@ export class Sketch {
         // calculate density and pressure for every particle
         gl.useProgram(this.pressurePrg.program);
         twgl.bindFramebufferInfo(gl, this.pressureFBO);
-        twgl.setBuffersAndAttributes(gl, this.pressurePrg, this.quadBufferInfo);
+        gl.bindVertexArray(this.quadVAO);
         twgl.setUniforms(this.pressurePrg, { 
             u_positionTexture: this.inFBO.attachments[0],
             u_indicesTexture: this.currentIndicesTexture,
             u_offsetTexture: this.textures.offset,
-            u_cellTexSize: [this.cellSideCount, this.cellSideCount],
-            u_cellSize: this.simulationParams.H,
         });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
 
         // calculate pressure-, viscosity- and boundary forces for every particle
         gl.useProgram(this.forcePrg.program);
         twgl.bindFramebufferInfo(gl, this.forceFBO);
-        twgl.setBuffersAndAttributes(gl, this.forcePrg, this.quadBufferInfo);
         twgl.setUniforms(this.forcePrg, { 
             u_densityPressureTexture: this.pressureFBO.attachments[0],
             u_positionTexture: this.inFBO.attachments[0], 
@@ -370,7 +372,6 @@ export class Sketch {
         gl.useProgram(this.integratePrg.program);
         twgl.bindFramebufferInfo(gl, this.outFBO);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        twgl.setBuffersAndAttributes(gl, this.integratePrg, this.quadBufferInfo);
         twgl.setUniforms(this.integratePrg, { 
             u_positionTexture: this.inFBO.attachments[0], 
             u_velocityTexture: this.inFBO.attachments[1],
@@ -410,7 +411,7 @@ export class Sketch {
         // update the indices structure
         gl.useProgram(this.indicesPrg.program);
         twgl.bindFramebufferInfo(gl, this.indices1FBO);
-        twgl.setBuffersAndAttributes(gl, this.indicesPrg, this.quadBufferInfo);
+        gl.bindVertexArray(this.quadVAO);
         twgl.setUniforms(this.indicesPrg, { 
             u_positionTexture: this.currentPositionTexture,
             u_cellTexSize: [this.cellSideCount, this.cellSideCount],
@@ -423,7 +424,6 @@ export class Sketch {
         let sortOutFBO = this.indices1FBO;
         let sortInFBO = this.indices2FBO;
         gl.useProgram(this.sortPrg.program);
-        twgl.setBuffersAndAttributes(gl, this.sortPrg, this.quadBufferInfo);
 
         // https://developer.nvidia.com/gpugems/gpugems2/part-vi-simulation-and-numerical-algorithms/chapter-46-improved-gpu-sorting
         let pass = -1;
@@ -508,13 +508,8 @@ export class Sketch {
             }
         }*/
 
-        // reset the offset texture
-        this.initialOffsetTextureData.fill(Number.MAX_VALUE);
-        twgl.setTextureFromArray(gl, this.textures.offset, this.initialOffsetTextureData, this.offsetTextureOptions);
-
         // set the offset list elements
         gl.useProgram(this.offsetPrg.program);
-        twgl.setBuffersAndAttributes(gl, this.offsetPrg, this.quadBufferInfo);
         twgl.bindFramebufferInfo(gl, this.offsetFBO);
         twgl.setUniforms(this.offsetPrg, { 
             u_indicesTexture: sortOutFBO.attachments[0],
@@ -575,7 +570,10 @@ export class Sketch {
         twgl.setUniforms(this.drawPrg, { 
             u_positionTexture: this.currentPositionTexture,
             u_velocityTexture: this.currentVelocityTexture,
-            u_resolution: this.viewportSize
+            u_resolution: this.viewportSize,
+            u_cellTexSize: [this.cellSideCount, this.cellSideCount],
+            u_cellSize: this.simulationParams.H,
+            u_domainScale: this.domainScale,
         });
         gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
         gl.disable(gl.BLEND);

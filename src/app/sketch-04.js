@@ -150,7 +150,7 @@ export class Sketch {
         // Setup Meshes
         this.quadBufferInfo = twgl.createBufferInfoFromArrays(gl, { a_position: { numComponents: 2, data: [-1, -1, 3, -1, -1, 3] }});
         this.quadVAO = twgl.createVAOAndSetAttributes(gl, this.pressurePrg.attribSetters, this.quadBufferInfo.attribs, this.quadBufferInfo.indices);
-        const spikesArrays = twgl.primitives.createPlaneVertices(this.PLANE_SIZE, this.PLANE_SIZE, 228, 228);
+        const spikesArrays = twgl.primitives.createPlaneVertices(this.PLANE_SIZE, this.PLANE_SIZE, 200, 200);
         this.spikesBufferInfo = twgl.createBufferInfoFromArrays(gl, spikesArrays);
         this.spikesVAO = twgl.createVAOAndSetAttributes(gl, this.spikesPrg.attribSetters, this.spikesBufferInfo.attribs, this.spikesBufferInfo.indices);
         this.spikesWorldMatrix = mat4.create();
@@ -314,7 +314,7 @@ export class Sketch {
         // calculate density and pressure for every particle
         gl.useProgram(this.pressurePrg.program);
         twgl.bindFramebufferInfo(gl, this.pressureFBO);
-        gl.bindVertexArray(this.quadVAO)
+        gl.bindVertexArray(this.quadVAO);
         twgl.setUniforms(this.pressurePrg, { u_positionTexture: this.inFBO.attachments[0] });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
 

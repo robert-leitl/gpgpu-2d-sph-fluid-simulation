@@ -1,5 +1,5 @@
 import { concatAll, take, count, debounceTime, delay, filter, forkJoin, from, fromEvent, map, scan, withLatestFrom, of, switchMap, tap, distinctUntilChanged } from 'rxjs';
-import { Sketch } from './sketch-04';
+import { Sketch } from './sketch-03';
 import { Pane } from 'tweakpane';
 
 const queryString = window.location.search;
