@@ -10,8 +10,6 @@ uniform ivec2 u_texSize;
 uniform float u_ppass;
 uniform usampler2D u_indicesTexture;
 
-in vec2 v_position;
-
 out uvec4 outIndices;
 
 #include ./utils/particle-utils.glsl;

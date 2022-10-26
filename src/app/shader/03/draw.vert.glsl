@@ -32,5 +32,5 @@ void main() {
     gl_PointSize = pointSize + v_velocity * pointSize + 20.;
 
     float numCells = float(u_cellTexSize.x * u_cellTexSize.y);
-    v_color = hsv2rgb(vec3(float(cellId) / numCells, 0.5, 0.8));
+    v_color = hsv2rgb(vec3(fract((float(cellId) / numCells) * 5.), 0.5, 0.8));
 }

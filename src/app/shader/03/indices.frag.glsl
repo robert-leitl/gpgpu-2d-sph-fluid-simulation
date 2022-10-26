@@ -7,8 +7,6 @@ uniform vec2 u_domainScale;
 uniform ivec2 u_cellTexSize;
 uniform float u_cellSize;
 
-in vec2 v_position;
-
 #include ./utils/particle-utils.glsl;
 
 out uvec4 outIndices;
