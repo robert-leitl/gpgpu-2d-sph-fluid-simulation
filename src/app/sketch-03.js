@@ -37,7 +37,7 @@ export class Sketch {
         H: 1, // kernel radius
         MASS: 1, // particle mass
         REST_DENS: 1.55, // rest density
-        GAS_CONST: 200, // gas constant
+        GAS_CONST: 90, // gas constant
         VISC: 10, // viscosity constant
 
         // these are calculated from the above constants
