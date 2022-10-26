@@ -10,6 +10,12 @@ import pressureVert from './shader/03/pressure.vert.glsl';
 import pressureFrag from './shader/03/pressure.frag.glsl';
 import forceVert from './shader/03/force.vert.glsl';
 import forceFrag from './shader/03/force.frag.glsl';
+import indicesVert from './shader/03/indices.vert.glsl';
+import indicesFrag from './shader/03/indices.frag.glsl';
+import sortVert from './shader/03/sort.vert.glsl';
+import sortFrag from './shader/03/sort.frag.glsl';
+import offsetVert from './shader/03/offset.vert.glsl';
+import offsetFrag from './shader/03/offset.frag.glsl';
 
 export class Sketch {
 
@@ -22,7 +28,10 @@ export class Sketch {
     #deltaFrames = 0;
 
     // particle constants
-    NUM_PARTICLES = 500;
+    NUM_PARTICLES = 520;
+
+    // the domain scale factor compresses the field to make a dense particle area
+    DOMAIN_SCALE_FACTOR = 9;
 
     simulationParams = {
         H: 1, // kernel radius
@@ -40,7 +49,7 @@ export class Sketch {
         PARTICLE_COUNT: 0,
         DOMAIN_SCALE: 0,
 
-        STEPS: 2
+        STEPS: 1
     };
 
     pointerParams = {
@@ -58,7 +67,7 @@ export class Sketch {
     }
 
     run(time = 0) {
-        this.#deltaTime = Math.min(32, time - this.#time);
+        this.#deltaTime = Math.min(16, time - this.#time);
         this.#time = time;
         this.#deltaFrames = this.#deltaTime / this.TARGET_FRAME_DURATION;
         this.#frames += this.#deltaFrames;
@@ -84,7 +93,7 @@ export class Sketch {
         const maxSize = Math.max(this.domainScale[0], this.domainScale[1]) * 1.;
         this.domainScale[0] /= maxSize;
         this.domainScale[1] /= maxSize;
-        vec2.scale(this.domainScale, this.domainScale, 5.);
+        vec2.scale(this.domainScale, this.domainScale, (this.textureSize * this.simulationParams.H) / this.DOMAIN_SCALE_FACTOR)
         this.simulationParams.DOMAIN_SCALE = this.domainScale;
         this.simulationParamsNeedUpdate = true;
 
@@ -115,6 +124,9 @@ export class Sketch {
         this.integratePrg = twgl.createProgramInfo(gl, [integrateVert, integrateFrag]);
         this.pressurePrg = twgl.createProgramInfo(gl, [pressureVert, pressureFrag]);
         this.forcePrg = twgl.createProgramInfo(gl, [forceVert, forceFrag]);
+        this.indicesPrg = twgl.createProgramInfo(gl, [indicesVert, indicesFrag]);
+        this.sortPrg = twgl.createProgramInfo(gl, [sortVert, sortFrag]);
+        this.offsetPrg = twgl.createProgramInfo(gl, [offsetVert, offsetFrag]);
 
         // Setup uinform blocks
         this.simulationParamsUBO = twgl.createUniformBlockInfo(gl, this.pressurePrg, 'u_SimulationParams');
@@ -129,6 +141,9 @@ export class Sketch {
         this.forceFBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.force}], this.textureSize, this.textureSize);
         this.inFBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.position1},{attachment: this.textures.velocity1}], this.textureSize, this.textureSize);
         this.outFBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.position2},{attachment: this.textures.velocity2}], this.textureSize, this.textureSize);
+        this.indices1FBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.indices1}], this.textureSize, this.textureSize);
+        this.indices2FBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.indices2}], this.textureSize, this.textureSize);
+        this.offsetFBO = twgl.createFramebufferInfo(gl, [{attachment: this.textures.offset}], this.cellSideCount, this.cellSideCount);
 
         this.#initEvents();
         this.#updateSimulationParams();
@@ -161,6 +176,8 @@ export class Sketch {
         ).subscribe((e) => {
             this.pointer = this.#getNormalizedPointerCoords(e);
         });
+
+        fromEvent(window.document, 'keyup').subscribe(() => this.debugKey = true);
     }
 
     #updateSimulationParams() {
@@ -184,12 +201,25 @@ export class Sketch {
         /** @type {WebGLRenderingContext} */
         const gl = this.gl;
 
+        // get a power of two texture size
         this.textureSize = 2**Math.ceil(Math.log2(Math.sqrt(this.NUM_PARTICLES)));
 
         // update the particle size to fill the texture space
         this.NUM_PARTICLES = this.textureSize * this.textureSize;
         this.simulationParams.PARTICLE_COUNT = this.NUM_PARTICLES;
         this.simulationParamsNeedUpdate = true;
+
+        console.log('number of particles:', this.NUM_PARTICLES);
+
+        // update the sort params
+        this.logNumParticles = Math.log2(this.textureSize);
+        this.totalSortSteps = ((this.logNumParticles + this.logNumParticles) * (this.logNumParticles + this.logNumParticles + 1)) / 2;
+
+        // define the cell sizes
+        this.cellSideCount = Math.max(1, Math.ceil((this.textureSize * this.simulationParams.H) / this.DOMAIN_SCALE_FACTOR));
+        this.numCells = this.cellSideCount * this.cellSideCount;
+
+        console.log('number of cells:', this.numCells);
 
         const initVelocities = new Float32Array(this.NUM_PARTICLES * 4);
         const initForces = new Float32Array(this.NUM_PARTICLES * 4);
@@ -198,9 +228,13 @@ export class Sketch {
         for(let i=0; i<this.NUM_PARTICLES; ++i) {
             initVelocities[i * 4 + 0] = 0;
             initVelocities[i * 4 + 1] = 0;
-            initPositions[i * 4 + 0] = Math.random() * 3 - 1.5;
-            initPositions[i * 4 + 1] = Math.random() * 3 - 1.5;
+            initPositions[i * 4 + 0] = Math.random() * 1 - .5;
+            initPositions[i * 4 + 1] = Math.random() * 1 - .5;
         }
+
+        // empty offset texture
+        this.initialOffsetTextureData = new Uint32Array(this.numCells);
+        this.initialOffsetTextureData.fill(Number.MAX_VALUE);
 
         const defaultOptions = {
             width: this.textureSize,
@@ -215,6 +249,15 @@ export class Sketch {
             internalFormat: gl.RGBA32F, 
         }
 
+        this.offsetTextureOptions = {
+            ...defaultOptions,
+            width: this.cellSideCount,
+            height: this.cellSideCount,
+            format: gl.RED_INTEGER,
+            internalFormat: gl.R32UI,
+            wrap: gl.CLAMP_TO_EDGE
+        }
+
         this.textures = twgl.createTextures(gl, { 
             densityPressure: {
                 ...defaultOptions,
@@ -227,6 +270,24 @@ export class Sketch {
             position2: { ...defaultVectorTexOptions, src: [...initPositions] },
             velocity1: { ...defaultVectorTexOptions, src: [...initVelocities] },
             velocity2: { ...defaultVectorTexOptions, src: [...initVelocities] },
+            indices1: {
+                ...defaultOptions,
+                format: gl.RGBA_INTEGER,
+                internalFormat: gl.RGBA32UI,
+                src: new Uint32Array(this.NUM_PARTICLES * 4),
+                wrap: gl.CLAMP_TO_EDGE
+            },
+            indices2: {
+                ...defaultOptions,
+                format: gl.RGBA_INTEGER,
+                internalFormat: gl.RGBA32UI,
+                src: new Uint32Array(this.NUM_PARTICLES * 4),
+                wrap: gl.CLAMP_TO_EDGE
+            },
+            offset: {
+                ...this.offsetTextureOptions,
+                src: this.initialOffsetTextureData,
+            }
         });
 
         this.currentPositionTexture = this.textures.position2;
@@ -237,7 +298,6 @@ export class Sketch {
         if (!this.pane) return;
 
         const sim = this.pane.addFolder({ title: 'Simulation' });
-        sim.addInput(this.simulationParams, 'H', { min: 0.01, max: 1, });
         sim.addInput(this.simulationParams, 'MASS', { min: 0.01, max: 5, });
         sim.addInput(this.simulationParams, 'REST_DENS', { min: 0.1, max: 5, });
         sim.addInput(this.simulationParams, 'GAS_CONST', { min: 10, max: 500, });
@@ -264,6 +324,8 @@ export class Sketch {
         /** @type {WebGLRenderingContext} */
         const gl = this.gl;
 
+        //this.#prepare();
+
         if (this.simulationParamsNeedUpdate) {
             twgl.setBlockUniforms(
                 this.simulationParamsUBO,
@@ -280,7 +342,13 @@ export class Sketch {
         gl.useProgram(this.pressurePrg.program);
         twgl.bindFramebufferInfo(gl, this.pressureFBO);
         twgl.setBuffersAndAttributes(gl, this.pressurePrg, this.quadBufferInfo);
-        twgl.setUniforms(this.pressurePrg, { u_positionTexture: this.inFBO.attachments[0] });
+        twgl.setUniforms(this.pressurePrg, { 
+            u_positionTexture: this.inFBO.attachments[0],
+            u_indicesTexture: this.currentIndicesTexture,
+            u_offsetTexture: this.textures.offset,
+            u_cellTexSize: [this.cellSideCount, this.cellSideCount],
+            u_cellSize: this.simulationParams.H,
+        });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
 
         // calculate pressure-, viscosity- and boundary forces for every particle
@@ -290,7 +358,11 @@ export class Sketch {
         twgl.setUniforms(this.forcePrg, { 
             u_densityPressureTexture: this.pressureFBO.attachments[0],
             u_positionTexture: this.inFBO.attachments[0], 
-            u_velocityTexture: this.inFBO.attachments[1]
+            u_velocityTexture: this.inFBO.attachments[1],
+            u_indicesTexture: this.currentIndicesTexture,
+            u_offsetTexture: this.textures.offset,
+            u_cellTexSize: [this.cellSideCount, this.cellSideCount],
+            u_cellSize: this.simulationParams.H,
         });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
 
@@ -331,15 +403,151 @@ export class Sketch {
         this.outFBO = tmp;
     }
 
+    #prepare() {
+        /** @type {WebGLRenderingContext} */
+        const gl = this.gl;
+
+        // update the indices structure
+        gl.useProgram(this.indicesPrg.program);
+        twgl.bindFramebufferInfo(gl, this.indices1FBO);
+        twgl.setBuffersAndAttributes(gl, this.indicesPrg, this.quadBufferInfo);
+        twgl.setUniforms(this.indicesPrg, { 
+            u_positionTexture: this.currentPositionTexture,
+            u_cellTexSize: [this.cellSideCount, this.cellSideCount],
+            u_cellSize: this.simulationParams.H,
+            u_domainScale: this.domainScale,
+        });
+        twgl.drawBufferInfo(gl, this.quadBufferInfo);
+
+        // sort by cell id
+        let sortOutFBO = this.indices1FBO;
+        let sortInFBO = this.indices2FBO;
+        gl.useProgram(this.sortPrg.program);
+        twgl.setBuffersAndAttributes(gl, this.sortPrg, this.quadBufferInfo);
+
+        // https://developer.nvidia.com/gpugems/gpugems2/part-vi-simulation-and-numerical-algorithms/chapter-46-improved-gpu-sorting
+        let pass = -1;
+        let stage = -1;
+        let stepsLeft = this.totalSortSteps;
+        while(stepsLeft) {
+            // update pass and stage uniforms
+            pass--;
+            if (pass < 0) {
+                // next stage
+                stage++;
+                pass = stage;
+            }
+
+            const pstage = (1 << stage);
+            const ppass  = (1 << pass);
+
+            twgl.bindFramebufferInfo(gl, sortInFBO);
+            twgl.setUniforms(this.sortPrg, { 
+                u_indicesTexture: sortOutFBO.attachments[0],
+                u_twoStage: pstage + pstage,
+                u_passModStage: ppass % pstage,
+                u_twoStagePmS1: (pstage + pstage) - (ppass % pstage) - 1,
+                u_texSize: [this.textureSize, this.textureSize],
+                u_ppass: ppass
+            });
+            twgl.drawBufferInfo(gl, this.quadBufferInfo);
+
+            // buffer swap
+            const tmp = sortOutFBO;
+            sortOutFBO = sortInFBO;
+            sortInFBO = tmp;
+
+            stepsLeft--;
+
+
+            /*if (this.#frames > 0 && this.#frames < 2) {
+                console.log('pstage:', pstage, 'ppass:', ppass, 'twoStage:', pstage+pstage, 'passModStage:', ppass % pstage, 'twoStagePmS1:', (pstage + pstage) - (ppass % pstage) - 1);
+                console.log('particle count:', this.NUM_PARTICLES);
+                console.log('total steps:', this.totalSortSteps);
+                const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
+                gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RGBA_INTEGER, gl.UNSIGNED_INT, indicesData)
+                const cells = indicesData.reduce((arr, v, i) => i % 4 === 0 ? [...arr, v] : arr, []);
+                const cellIds = cells.reduce((arr, value) => arr.includes(value) ? arr : [...arr, value], []);
+                const particles = indicesData.reduce((arr, v, i) => i % 4 === 1 ? [...arr, v] : arr, []);
+                const particleIds = particles.reduce((arr, value) => arr.includes(value) ? arr : [...arr, value], []);
+                console.log(cellIds);
+                console.log('particleCount:', particleIds.length);
+                const isSorted = cellIds.every((v, i) => i === 0 || cellIds[i - 1] < v);
+                if (particleIds.length === this.NUM_PARTICLES && isSorted) 
+                    console.warn('success')
+                /*else
+                    console.error('fail');
+                for(let i=0; i<this.NUM_PARTICLES; i++) {
+                    console.log(i, 'cellId:',indicesData[i * 4], 'particleId:', indicesData[i * 4 + 1], 'z:', indicesData[i * 4 + 2], 'w:', indicesData[i * 4 + 3] )
+                }
+                
+            }*/
+        }
+
+        /*const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
+        gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RGBA_INTEGER, gl.UNSIGNED_INT, indicesData)
+        const cells = indicesData.reduce((arr, v, i) => i % 4 === 0 ? [...arr, v] : arr, []);
+        const cellIds = cells.reduce((arr, value) => arr.includes(value) ? arr : [...arr, value], []);
+        const particles = indicesData.reduce((arr, v, i) => i % 4 === 1 ? [...arr, v] : arr, []);
+        const particleIds = particles.reduce((arr, value) => arr.includes(value) ? arr : [...arr, value], []);
+        const isSorted = cellIds.every((v, i) => i === 0 || cellIds[i - 1] < v);
+        if (particleIds.length !== this.NUM_PARTICLES && !isSorted) 
+            console.error('fail');*/
+
+
+        /*if (this.debugKey) {
+            const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
+            gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RGBA_INTEGER, gl.UNSIGNED_INT, indicesData)
+            const cells = indicesData.reduce((arr, v, i) => i % 4 === 0 ? [...arr, v] : arr, []);
+            const cellIds = cells.reduce((arr, value) => arr.includes(value) ? arr : [...arr, value], []);
+            const particles = indicesData.reduce((arr, v, i) => i % 4 === 1 ? [...arr, v] : arr, []);
+            const particleIds = particles.reduce((arr, value) => arr.includes(value) ? arr : [...arr, value], []);
+            const isSorted = cellIds.every((v, i) => i === 0 || cellIds[i - 1] < v);
+            for(let i=0; i<this.NUM_PARTICLES; i++) {
+                console.log(i, 'cellId:',indicesData[i * 4], 'particleId:', indicesData[i * 4 + 1], 'z:', indicesData[i * 4 + 2], 'w:', indicesData[i * 4 + 3] )
+            }
+        }*/
+
+        // reset the offset texture
+        this.initialOffsetTextureData.fill(Number.MAX_VALUE);
+        twgl.setTextureFromArray(gl, this.textures.offset, this.initialOffsetTextureData, this.offsetTextureOptions);
+
+        // set the offset list elements
+        gl.useProgram(this.offsetPrg.program);
+        twgl.setBuffersAndAttributes(gl, this.offsetPrg, this.quadBufferInfo);
+        twgl.bindFramebufferInfo(gl, this.offsetFBO);
+        twgl.setUniforms(this.offsetPrg, { 
+            u_indicesTexture: sortOutFBO.attachments[0],
+            u_texSize: [this.cellSideCount, this.cellSideCount],
+            u_particleTexSize: [this.textureSize, this.textureSize],
+        });
+        gl.clearColor(1, 0, 0, 0);
+        twgl.drawBufferInfo(gl, this.quadBufferInfo);
+
+        this.currentIndicesTexture = sortOutFBO.attachments[0];
+
+        /*if (this.debugKey) {
+            console.warn('offset pass');
+            const indicesData = new Uint32Array(this.numCells * 1);
+            gl.readPixels(0, 0, this.cellSideCount, this.cellSideCount, gl.RED_INTEGER, gl.UNSIGNED_INT, indicesData)
+            for(let i=0; i<this.numCells; i++) {
+                console.log(i, 'offset:',indicesData[i])
+            }
+
+            this.debugKey = false;
+        }*/
+    }
+
     #animate(deltaTime) {
         this.#updatePointer();
 
 
-        // use a fixed deltaTime of 10 ms
-        const dt = 10;
+        // use a fixed deltaTime of 10 ms adapted to
+        // device frame rate
+        deltaTime = 16 * this.#deltaFrames;
 
         // simulate at least once
-        this.#simulate(dt);
+        this.#simulate(deltaTime);
 
         // clear the pointer force so that it wont add up during
         // subsequent simulation steps
@@ -347,7 +555,7 @@ export class Sketch {
 
         // additional simulation steps
         for(let i=0; i<this.simulationParams.STEPS; ++i) {
-            this.#simulate(dt);
+            this.#simulate(deltaTime);
         }
     }
 
