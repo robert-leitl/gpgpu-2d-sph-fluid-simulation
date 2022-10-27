@@ -26,3 +26,11 @@ ivec2 pos2CellIndex(vec2 p, ivec2 cellTexSize, vec2 domainScale, float cellSize)
     pi *= domainScale;
     return ivec2(floor(pi / cellSize));
 }
+
+int getFlatCellIndex(ivec2 cellIndex, int numGridCells) {
+    int p1 = 73856093; // some large primes
+    int p2 = 19349663;
+    int n = p1 * cellIndex.x ^ p2 * cellIndex.y;
+    n %= numGridCells;
+    return n;
+}

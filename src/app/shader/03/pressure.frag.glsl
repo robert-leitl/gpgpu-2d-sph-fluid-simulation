@@ -54,7 +54,9 @@ void main() {
     {
         for(int j = -1; j <= 1; ++j)
         {
-            ivec2 neighborIndex = cellIndex + ivec2(i, j);            
+            ivec2 neighborIndex = cellIndex + ivec2(i, j);
+            if (neighborIndex.x < 0 || neighborIndex.y < 0) continue;
+                   
             int neighborId = tex2ndx(CELL_TEX_SIZE, neighborIndex) % cellCount;
             
             // look up the offset to the cell:
