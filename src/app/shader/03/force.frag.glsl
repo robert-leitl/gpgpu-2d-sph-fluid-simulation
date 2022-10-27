@@ -147,30 +147,6 @@ void main() {
     }
 
     // compute boundary forces
-    /*float dim = 1.5;
-    float xmin = -dim;
-    float xmax = dim;
-    float ymin = -dim;
-    float ymax = dim;
-    float h = H;
-    float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
-
-    if (p.x < xmin + h) {
-        float r = p.x - xmin;
-        force.x -= f * spiky_grad2Weight(r) * r;
-    } else if (p.x > xmax - h) {
-        float r = xmax - p.x;
-        force.x += f * spiky_grad2Weight(r) * r;
-    }
-    if (p.y < ymin + h) {
-        float r = p.y - ymin;
-        force.y -= f * spiky_grad2Weight(r) * r;
-    } else if (p.y > ymax - h) {
-        float r = ymax - p.y;
-        force.y += f * spiky_grad2Weight(r) * r;
-    }*/
-
-    // compute boundary forces
     float h = H;
     vec2 minBound = -domainScale.xy;
     vec2 maxBound = domainScale.xy;

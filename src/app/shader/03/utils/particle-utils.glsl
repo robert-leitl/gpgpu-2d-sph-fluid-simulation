@@ -9,22 +9,16 @@ int tex2ndx(ivec2 dimensions, ivec2 tex) {
     return tex.x + tex.y * dimensions.x;
 }
 
-int pos2CellId(vec2 p, ivec2 cellTexSize, vec2 domainScale, float cellSize) {
-    vec2 pi = p * 0.5 + 0.5;
-    pi = clamp(pi, vec2(0.), vec2(1.));
-    pi *= domainScale;
-    return tex2ndx(cellTexSize, ivec2(floor(pi / cellSize)));
-    /*
-    vec2 pi = p * 0.5;
-    pi *= domainScale;
-    return tex2ndx(cellTexSize, ivec2(floor(pi / cellSize)));*/
-}
-
 ivec2 pos2CellIndex(vec2 p, ivec2 cellTexSize, vec2 domainScale, float cellSize) {
     vec2 pi = p * 0.5 + 0.5;
     pi = clamp(pi, vec2(0.), vec2(1.));
     pi *= domainScale;
     return ivec2(floor(pi / cellSize));
+}
+
+int pos2CellId(vec2 p, ivec2 cellTexSize, vec2 domainScale, float cellSize) {
+    ivec2 cellIndex = pos2CellIndex(p, cellTexSize, domainScale, cellSize);
+    return tex2ndx(cellTexSize, cellIndex);
 }
 
 int getFlatCellIndex(ivec2 cellIndex, int numGridCells) {
