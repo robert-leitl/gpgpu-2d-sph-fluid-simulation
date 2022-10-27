@@ -2,6 +2,7 @@
 #version 300 es
 
 precision highp float;
+precision highp int;
 precision highp usampler2D;
 
 uniform sampler2D u_positionTexture;
@@ -50,13 +51,11 @@ void main() {
     // find the cell id of this particle
     ivec2 cellIndex = pos2CellIndex(p.xy, CELL_TEX_SIZE, domainScale.xy, CELL_SIZE);
 
-    /*for(int i = -1; i <= 1; ++i)
+    for(int i = -1; i <= 1; ++i)
     {
         for(int j = -1; j <= 1; ++j)
         {
             ivec2 neighborIndex = cellIndex + ivec2(i, j);
-            if (neighborIndex.x < 0 || neighborIndex.y < 0) continue;
-
             int neighborId = tex2ndx(CELL_TEX_SIZE, neighborIndex) % cellCount;
             
             // look up the offset to the cell:
@@ -85,10 +84,10 @@ void main() {
                 neighborIterator++;
             }
         }
-    }*/
+    }
 
     // loop over all other particles
-    for(int i=0; i<PARTICLE_COUNT; i++) {
+    /*for(int i=0; i<PARTICLE_COUNT; i++) {
         vec4 pj = texelFetch(u_positionTexture, ndx2tex(particleTexDimensions, i), 0) * domainScale;
         vec4 pij = pj - pi;
 
@@ -97,7 +96,7 @@ void main() {
             float t = MASS * poly6Weight(r2);
             rho += t;
         }
-    }
+    }*/
 
     float pressure = max(GAS_CONST * (rho - REST_DENS), 0.);
 

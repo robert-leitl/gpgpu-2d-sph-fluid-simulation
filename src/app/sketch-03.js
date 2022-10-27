@@ -178,7 +178,7 @@ export class Sketch {
             this.pointer = this.#getNormalizedPointerCoords(e);
         });
 
-        //fromEvent(window.document, 'keyup').subscribe(() => this.debugKey = true);
+        fromEvent(window.document, 'keyup').subscribe(() => this.debugKey = true);
     }
 
     #updateSimulationParams() {
@@ -242,6 +242,7 @@ export class Sketch {
             height: this.textureSize,
             min: gl.NEAREST, 
             mag: gl.NEAREST,
+            wrap: gl.REPEAT
         }
 
         const defaultVectorTexOptions = {
@@ -353,6 +354,15 @@ export class Sketch {
             u_offsetTexture: this.textures.offset,
         });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
+
+        if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
+            const pressureData = new Float32Array(this.NUM_PARTICLES * 2);
+            gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RG, gl.FLOAT, pressureData)
+            for(let i=0; i<this.NUM_PARTICLES; i++) {
+                console.log('particleId:', i, 'rho:', pressureData[i * 2 + 0], 'pressure:', pressureData[i * 2 + 1])
+            }
+            this.debugKey = false;
+        }
 
         // calculate pressure-, viscosity- and boundary forces for every particle
         gl.useProgram(this.forcePrg.program);
@@ -495,7 +505,7 @@ export class Sketch {
             console.error('fail');*/
 
 
-        if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
+        /*if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
             const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
             gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RGBA_INTEGER, gl.UNSIGNED_INT, indicesData)
             const cells = indicesData.reduce((arr, v, i) => i % 4 === 0 ? [...arr, v] : arr, []);
@@ -506,7 +516,7 @@ export class Sketch {
             for(let i=0; i<this.NUM_PARTICLES; i++) {
                 console.log(i, 'cellId:',indicesData[i * 4], 'particleId:', indicesData[i * 4 + 1], 'z:', indicesData[i * 4 + 2], 'w:', indicesData[i * 4 + 3] )
             }
-        }
+        }*/
 
         // set the offset list elements
         gl.useProgram(this.offsetPrg.program);
@@ -521,7 +531,7 @@ export class Sketch {
 
         this.currentIndicesTexture = sortOutFBO.attachments[0];
 
-        if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
+        /*if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
             console.warn('offset pass');
             const indicesData = new Uint32Array(this.numCells * 1);
             gl.readPixels(0, 0, this.cellSideCount, this.cellSideCount, gl.RED_INTEGER, gl.UNSIGNED_INT, indicesData)
@@ -530,7 +540,7 @@ export class Sketch {
             }
 
             this.debugKey = false;
-        }
+        }*/
     }
 
     #animate(deltaTime) {

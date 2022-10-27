@@ -1,6 +1,7 @@
 #version 300 es
 
 precision highp float;
+precision highp int;
 precision highp usampler2D;
 
 uniform sampler2D u_positionTexture;
@@ -61,7 +62,7 @@ void main() {
     // find the cell id of this particle
     ivec2 cellIndex = pos2CellIndex(p.xy, CELL_TEX_SIZE, domainScale.xy, CELL_SIZE);
 
-    /*for(int i = -1; i <= 1; ++i)
+    for(int i = -1; i <= 1; ++i)
     {
         for(int j = -1; j <= 1; ++j)
         {
@@ -113,10 +114,10 @@ void main() {
                 neighborIterator++;
             }
         }
-    }*/
+    }
 
     // loop over all other particles
-    for(int i=0; i<PARTICLE_COUNT; i++) {
+    /*for(int i=0; i<PARTICLE_COUNT; i++) {
         ivec2 pj_tex = ndx2tex(particleTexDimensions, i);
         vec4 pj = texelFetch(u_positionTexture, pj_tex, 0) * domainScale;
         vec4 pij = pj - pi;
@@ -144,12 +145,13 @@ void main() {
 
             force += pressureForce + viscosityForce;
         }
-    }
+    }*/
 
     // compute boundary forces
     float h = H;
-    vec2 minBound = -domainScale.xy;
-    vec2 maxBound = domainScale.xy;
+    float scale = 1.2;
+    vec2 minBound = -domainScale.xy * scale;
+    vec2 maxBound = domainScale.xy * scale;
     float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
 
     if (pi.x < minBound.x + h) {
