@@ -234,7 +234,7 @@ export class Sketch {
         }
 
         // empty offset texture
-        this.initialOffsetTextureData = new Uint32Array(this.numCells);
+        this.initialOffsetTextureData = new Uint16Array(this.numCells);
         this.initialOffsetTextureData.fill(Number.MAX_VALUE);
 
         const defaultOptions = {
@@ -251,12 +251,19 @@ export class Sketch {
             internalFormat: gl.RGBA32F, 
         }
 
+        const defaultIndicesTexOptions = {
+            ...defaultOptions,
+            format: gl.RG_INTEGER,
+            internalFormat: gl.RG16UI,
+            wrap: gl.CLAMP_TO_EDGE
+        }
+
         this.offsetTextureOptions = {
             ...defaultOptions,
             width: this.cellSideCount,
             height: this.cellSideCount,
             format: gl.RED_INTEGER,
-            internalFormat: gl.R32UI,
+            internalFormat: gl.R16UI,
             wrap: gl.CLAMP_TO_EDGE
         }
 
@@ -273,18 +280,12 @@ export class Sketch {
             velocity1: { ...defaultVectorTexOptions, src: [...initVelocities] },
             velocity2: { ...defaultVectorTexOptions, src: [...initVelocities] },
             indices1: {
-                ...defaultOptions,
-                format: gl.RGBA_INTEGER,
-                internalFormat: gl.RGBA32UI,
-                src: new Uint32Array(this.NUM_PARTICLES * 4),
-                wrap: gl.CLAMP_TO_EDGE
+                ...defaultIndicesTexOptions,
+                src: new Uint16Array(this.NUM_PARTICLES * 4)
             },
             indices2: {
-                ...defaultOptions,
-                format: gl.RGBA_INTEGER,
-                internalFormat: gl.RGBA32UI,
-                src: new Uint32Array(this.NUM_PARTICLES * 4),
-                wrap: gl.CLAMP_TO_EDGE
+                ...defaultIndicesTexOptions,
+                src: new Uint16Array(this.NUM_PARTICLES * 4)
             },
             offset: {
                 ...this.offsetTextureOptions,
@@ -355,14 +356,6 @@ export class Sketch {
         });
         twgl.drawBufferInfo(gl, this.quadBufferInfo);
 
-        if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
-            const pressureData = new Float32Array(this.NUM_PARTICLES * 2);
-            gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RG, gl.FLOAT, pressureData)
-            for(let i=0; i<this.NUM_PARTICLES; i++) {
-                console.log('particleId:', i, 'rho:', pressureData[i * 2 + 0], 'pressure:', pressureData[i * 2 + 1])
-            }
-            this.debugKey = false;
-        }
 
         // calculate pressure-, viscosity- and boundary forces for every particle
         gl.useProgram(this.forcePrg.program);

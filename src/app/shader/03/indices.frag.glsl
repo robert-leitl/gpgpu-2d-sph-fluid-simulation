@@ -9,7 +9,7 @@ uniform float u_cellSize;
 
 #include ./utils/particle-utils.glsl;
 
-out uvec4 outIndices;
+out uvec2 outIndices;
 
 void main() {
     ivec2 texSize = textureSize(u_positionTexture, 0);
@@ -21,5 +21,5 @@ void main() {
     vec4 pi = texelFetch(u_positionTexture, pi_tex, 0);
     int cellId = pos2CellId(pi.xy, u_cellTexSize, u_domainScale, u_cellSize);
 
-    outIndices = uvec4(cellId, particleId, uvec2((pi.xy * 0.5 + 0.5) * u_domainScale * 10.));
+    outIndices = uvec2(cellId, particleId);
 }

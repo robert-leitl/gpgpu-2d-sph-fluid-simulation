@@ -75,7 +75,7 @@ void main() {
             // iterate through particles in the neighbour cell (if iterator offset is valid)
             while(neighborIterator != emptyOffsetValue && neighborIterator < PARTICLE_COUNT)
             {
-                uvec4 indexData = texelFetch(u_indicesTexture, ndx2tex(particleTexDimensions, neighborIterator), 0);
+                uvec2 indexData = texelFetch(u_indicesTexture, ndx2tex(particleTexDimensions, neighborIterator), 0).xy;
 
                 if(int(indexData.x) != neighborId) {
                     break;  // it means we stepped out of the neighbour cell list
