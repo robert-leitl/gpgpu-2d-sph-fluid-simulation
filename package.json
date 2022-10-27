@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "vite serve",
-    "build": "vite build --emptyOutDir --base=/ferrofluid/dist/",
+    "build": "vite build --emptyOutDir --base=/gpgpu-2d-sph-fluid-simulation/dist/",
     "preview": "vite preview"
   },
   "devDependencies": {
