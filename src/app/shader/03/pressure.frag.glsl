@@ -40,6 +40,7 @@ float poly6Weight(float r2) {
 void main() {
     ivec2 particleTexDimensions = textureSize(u_positionTexture, 0);
     vec4 domainScale = vec4(DOMAIN_SCALE, 0., 0.);
+    int emptyOffsetValue = PARTICLE_COUNT * PARTICLE_COUNT;
     int cellCount = CELL_TEX_SIZE.x * CELL_TEX_SIZE.y;
 
     vec4 p = texture(u_positionTexture, v_uv);
@@ -60,7 +61,7 @@ void main() {
             int neighborIterator = int(texelFetch(u_offsetTexture, ndx2tex(CELL_TEX_SIZE, neighborId), 0).x);
 
             // iterate through particles in the neighbour cell (if iterator offset is valid)
-            while(neighborIterator != 1048576 && neighborIterator < PARTICLE_COUNT)
+            while(neighborIterator != emptyOffsetValue && neighborIterator < PARTICLE_COUNT)
             {
                 uvec4 indexData = texelFetch(u_indicesTexture, ndx2tex(particleTexDimensions, neighborIterator), 0);
 

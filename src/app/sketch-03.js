@@ -495,7 +495,7 @@ export class Sketch {
             console.error('fail');*/
 
 
-        /*if (this.debugKey) {
+        if (this.debugKey || this.#frames < 2) {
             const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
             gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RGBA_INTEGER, gl.UNSIGNED_INT, indicesData)
             const cells = indicesData.reduce((arr, v, i) => i % 4 === 0 ? [...arr, v] : arr, []);
@@ -506,7 +506,7 @@ export class Sketch {
             for(let i=0; i<this.NUM_PARTICLES; i++) {
                 console.log(i, 'cellId:',indicesData[i * 4], 'particleId:', indicesData[i * 4 + 1], 'z:', indicesData[i * 4 + 2], 'w:', indicesData[i * 4 + 3] )
             }
-        }*/
+        }
 
         // set the offset list elements
         gl.useProgram(this.offsetPrg.program);
@@ -521,7 +521,7 @@ export class Sketch {
 
         this.currentIndicesTexture = sortOutFBO.attachments[0];
 
-        /*if (this.debugKey) {
+        if (this.debugKey || this.#frames < 2) {
             console.warn('offset pass');
             const indicesData = new Uint32Array(this.numCells * 1);
             gl.readPixels(0, 0, this.cellSideCount, this.cellSideCount, gl.RED_INTEGER, gl.UNSIGNED_INT, indicesData)
@@ -530,7 +530,7 @@ export class Sketch {
             }
 
             this.debugKey = false;
-        }*/
+        }
     }
 
     #animate(deltaTime) {
