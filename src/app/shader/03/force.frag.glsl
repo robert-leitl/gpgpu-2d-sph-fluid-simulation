@@ -61,7 +61,7 @@ void main() {
     // find the cell id of this particle
     ivec2 cellIndex = pos2CellIndex(p.xy, CELL_TEX_SIZE, domainScale.xy, CELL_SIZE);
 
-    for(int i = -1; i <= 1; ++i)
+    /*for(int i = -1; i <= 1; ++i)
     {
         for(int j = -1; j <= 1; ++j)
         {
@@ -113,10 +113,10 @@ void main() {
                 neighborIterator++;
             }
         }
-    }
+    }*/
 
     // loop over all other particles
-    /*for(int i=0; i<PARTICLE_COUNT; i++) {
+    for(int i=0; i<PARTICLE_COUNT; i++) {
         ivec2 pj_tex = ndx2tex(particleTexDimensions, i);
         vec4 pj = texelFetch(u_positionTexture, pj_tex, 0) * domainScale;
         vec4 pij = pj - pi;
@@ -144,7 +144,7 @@ void main() {
 
             force += pressureForce + viscosityForce;
         }
-    }*/
+    }
 
     pi /= domainScale;
 

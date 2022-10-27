@@ -460,7 +460,7 @@ export class Sketch {
             stepsLeft--;
 
 
-            if (this.#frames > 0 && this.#frames < 2) {
+            /*if (this.#frames > 0 && this.#frames < 2) {
                 console.log('pstage:', pstage, 'ppass:', ppass, 'twoStage:', pstage+pstage, 'passModStage:', ppass % pstage, 'twoStagePmS1:', (pstage + pstage) - (ppass % pstage) - 1);
                 console.log('particle count:', this.NUM_PARTICLES);
                 console.log('total steps:', this.totalSortSteps);
@@ -479,9 +479,9 @@ export class Sketch {
                     console.error('fail');
                 for(let i=0; i<this.NUM_PARTICLES; i++) {
                     console.log(i, 'cellId:',indicesData[i * 4], 'particleId:', indicesData[i * 4 + 1], 'z:', indicesData[i * 4 + 2], 'w:', indicesData[i * 4 + 3] )
-                }*/
+                }/
                 
-            }
+            }*/
         }
 
         /*const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
