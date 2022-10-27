@@ -28,10 +28,10 @@ export class Sketch {
     #deltaFrames = 0;
 
     // particle constants
-    NUM_PARTICLES = 520;
+    NUM_PARTICLES = 500;
 
     // the domain scale factor compresses the field to make a dense particle area
-    DOMAIN_SCALE_FACTOR = 5;
+    DOMAIN_SCALE_FACTOR = 4;
 
     simulationParams = {
         H: 1, // kernel radius

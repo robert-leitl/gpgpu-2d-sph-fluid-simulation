@@ -146,10 +146,8 @@ void main() {
         }
     }
 
-    pi /= domainScale;
-
     // compute boundary forces
-    float dim = 1.5; // hides the edges when greater than 2
+    /*float dim = 1.5;
     float xmin = -dim;
     float xmax = dim;
     float ymin = -dim;
@@ -157,18 +155,39 @@ void main() {
     float h = H;
     float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
 
-    if (pi.x < xmin + h) {
-        float r = pi.x - xmin;
+    if (p.x < xmin + h) {
+        float r = p.x - xmin;
         force.x -= f * spiky_grad2Weight(r) * r;
-    } else if (pi.x > xmax - h) {
-        float r = xmax - pi.x;
+    } else if (p.x > xmax - h) {
+        float r = xmax - p.x;
         force.x += f * spiky_grad2Weight(r) * r;
     }
-    if (pi.y < ymin + h) {
-        float r = pi.y - ymin;
+    if (p.y < ymin + h) {
+        float r = p.y - ymin;
         force.y -= f * spiky_grad2Weight(r) * r;
-    } else if (pi.y > ymax - h) {
-        float r = ymax - pi.y;
+    } else if (p.y > ymax - h) {
+        float r = ymax - p.y;
+        force.y += f * spiky_grad2Weight(r) * r;
+    }*/
+
+    // compute boundary forces
+    float h = H;
+    vec2 minBound = -domainScale.xy;
+    vec2 maxBound = domainScale.xy;
+    float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
+
+    if (pi.x < minBound.x + h) {
+        float r = pi.x - minBound.x;
+        force.x -= f * spiky_grad2Weight(r) * r;
+    } else if (pi.x > maxBound.x - h) {
+        float r = maxBound.x - pi.x;
+        force.x += f * spiky_grad2Weight(r) * r;
+    }
+    if (pi.y < minBound.y + h) {
+        float r = pi.y - minBound.y;
+        force.y -= f * spiky_grad2Weight(r) * r;
+    } else if (pi.y > maxBound.y - h) {
+        float r = maxBound.y - pi.y;
         force.y += f * spiky_grad2Weight(r) * r;
     }
 
