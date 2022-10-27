@@ -495,7 +495,7 @@ export class Sketch {
             console.error('fail');*/
 
 
-        if (this.debugKey || this.#frames < 2) {
+        if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
             const indicesData = new Uint32Array(this.NUM_PARTICLES * 4);
             gl.readPixels(0, 0, this.textureSize, this.textureSize, gl.RGBA_INTEGER, gl.UNSIGNED_INT, indicesData)
             const cells = indicesData.reduce((arr, v, i) => i % 4 === 0 ? [...arr, v] : arr, []);
@@ -521,7 +521,7 @@ export class Sketch {
 
         this.currentIndicesTexture = sortOutFBO.attachments[0];
 
-        if (this.debugKey || this.#frames < 2) {
+        if (this.debugKey || (this.#frames > 20 && this.#frames < 22)) {
             console.warn('offset pass');
             const indicesData = new Uint32Array(this.numCells * 1);
             gl.readPixels(0, 0, this.cellSideCount, this.cellSideCount, gl.RED_INTEGER, gl.UNSIGNED_INT, indicesData)
