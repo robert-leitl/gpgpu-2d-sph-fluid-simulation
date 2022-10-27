@@ -178,7 +178,7 @@ export class Sketch {
             this.pointer = this.#getNormalizedPointerCoords(e);
         });
 
-        fromEvent(window.document, 'keyup').subscribe(() => this.debugKey = true);
+        //fromEvent(window.document, 'keyup').subscribe(() => this.debugKey = true);
     }
 
     #updateSimulationParams() {
