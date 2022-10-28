@@ -229,8 +229,8 @@ export class Sketch {
         for(let i=0; i<this.NUM_PARTICLES; ++i) {
             initVelocities[i * 4 + 0] = 0;
             initVelocities[i * 4 + 1] = 0;
-            initPositions[i * 4 + 0] = Math.random() * 1 - .5;
-            initPositions[i * 4 + 1] = Math.random() * 1 - .5;
+            initPositions[i * 4 + 0] = Math.random() * 1.9 - .95;
+            initPositions[i * 4 + 1] = Math.random() * 1.9 - .95;
         }
 
         // empty offset texture
