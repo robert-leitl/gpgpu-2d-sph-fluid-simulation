@@ -28,7 +28,7 @@ export class Sketch {
     #deltaFrames = 0;
 
     // particle constants
-    NUM_PARTICLES = 500;
+    NUM_PARTICLES = 1500;
 
     // the domain scale factor compresses the field to make a dense particle area
     DOMAIN_SCALE_FACTOR = 4;
@@ -36,9 +36,9 @@ export class Sketch {
     simulationParams = {
         H: 1, // kernel radius
         MASS: 1, // particle mass
-        REST_DENS: 1.55, // rest density
-        GAS_CONST: 90, // gas constant
-        VISC: 10, // viscosity constant
+        REST_DENS: 1.8, // rest density
+        GAS_CONST: 40, // gas constant
+        VISC: 5.5, // viscosity constant
 
         // these are calculated from the above constants
         POLY6: 0,
@@ -53,8 +53,8 @@ export class Sketch {
     };
 
     pointerParams = {
-        RADIUS: 2,
-        STRENGTH: 10,
+        RADIUS: 3,
+        STRENGTH: 6,
     }
 
     constructor(canvasElm, onInit = null, isDev = false, pane = null) {

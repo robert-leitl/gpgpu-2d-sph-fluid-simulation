@@ -149,7 +149,7 @@ void main() {
 
     // compute boundary forces
     float h = H;
-    float scale = 1.2;
+    float scale = 1.;
     vec2 minBound = -domainScale.xy * scale;
     vec2 maxBound = domainScale.xy * scale;
     float f = (MASS / (pi_rho + 0.0000000001)) * pi_pressure;
